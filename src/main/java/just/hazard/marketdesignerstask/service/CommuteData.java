@@ -1,9 +1,14 @@
 package just.hazard.marketdesignerstask.service;
 
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalTime;
@@ -20,30 +25,49 @@ public class CommuteData {
 
     List<LocalTime> attendance = new ArrayList<>();
     List<LocalTime> leaveWork = new ArrayList<>();
+    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm:ss");
+    int count = 0;
 
     public void getCommuteData() {
-        URI url = URI.create(commuteDataUrl);
+//        RestTemplate restTemplate = new RestTemplate();
+//        ResponseEntity<String> responseEntity = restTemplate.getForEntity(commuteDataUrl, String.class);
+//        Stream<String> stream = Objects.requireNonNull(responseEntity.getBody()).lines();
 
-        RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> responseEntity = restTemplate.getForEntity(url, String.class);
-        Stream<String> stream = Objects.requireNonNull(responseEntity.getBody()).lines();
-        stream.forEach(s ->
-        {
-            split(s.split(" ",2));
-        });
-
-        attendance.forEach(System.out::println);
+        ClassPathResource resource = new ClassPathResource("time_data.txt");
+        try {
+            Path path = Paths.get(resource.getURI());
+            List<String> content = Files.readAllLines(path);
+            content.forEach(s ->
+            {
+                try {
+                    split(s.split(" ",2));
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        commutersCheck(LocalTime.of(14,0,0));
+        System.out.println("음 : " + count);
     }
 
-    private void split(String[] args){
+    private void split(String[] args) throws ParseException {
         attendance.add(stringParse(args[0]));
         leaveWork.add(stringParse(args[1]));
     }
 
-    private LocalTime stringParse(String a){
-        LocalTime localTime = LocalTime.parse(a);
-        String time = localTime.format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-
+    private LocalTime stringParse(String a) throws ParseException {
+        Date date = simpleDateFormat.parse(a);
+        String time = simpleDateFormat.format(date);
         return LocalTime.parse(time);
+    }
+    private void commutersCheck(LocalTime inputTime) {
+        int index = 0;
+        for(LocalTime time : attendance) {
+            if(time.isBefore(inputTime) && leaveWork.get(index).isAfter(inputTime))
+                count++;
+            index++;
+        }
     }
 }
